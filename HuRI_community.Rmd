@@ -1,0 +1,98 @@
+---
+title: Human reference interactome community establishment
+date: "Established on 09.12.2020, compiled on `r format(Sys.time(), '%d.%m.%Y')`"
+author: Lin Chung-wen
+output: html_document
+---
+
+## The following codes are used to have community/module from the Human reference interactome (HuRI)
+
+### Interaction dataset
+- [HI-union](http://www.interactome-atlas.org/faq/), the union of all published datasets (i.e. HI-I-05, HI-II-14, HuRI, Venkatesan-09, Yu-11, Yang-16, and Test space screens-19) except Lit-BM. (64006 interactions)
+
+- [HuRI](https://doi.org/10.1038/s41586-020-2188-x), the interaction published at 2020. (52569 interactions)
+
+- Assays, three independent screen experiment dataset.
+
+    - assay 1: 23729 interactions
+    - assay 2: 13031 interactions
+    - assay 3: 18774 interactions
+
+**Note**: All EnsemblID from the original interaction datasets are convered into ensembl symbol. The IDmapping file was downloaded from [Ensembl](https://www.ensembl.org/biomart/martview) through *BioMart*. The Human genes GRCh38.p13 dataset was selected.
+
+### Working environment setup
+Loading the required packages and some custom functions here.
+The OCG application [Becker et al., 2012](https://doi.org/10.1093/bioinformatics/btr621) is used for the community establishment.
+
+```{r message = FALSE}
+library(igraph)
+library(RCy3)
+library(gprofiler2)
+library(dplyr)
+library(rstatix)
+library(igraph)
+library(stringr)
+library(linkcomm)
+```
+
+### Background interaction dataset
+Downloaded from public repository (Github).
+
+```{r message = FALSE}
+huri <- read.table("https://raw.githubusercontent.com/lincw/HuRI/master/HuRI_edges.txt", header = FALSE, sep = "\t")
+huri_a1 <- read.table("https://raw.githubusercontent.com/lincw/HuRI/master/HuRI_assay1_edges.txt", header = FALSE, sep = "\t")
+huri_a2 <- read.table("https://raw.githubusercontent.com/lincw/HuRI/master/HuRI_assay2_edges.txt", header = FALSE, sep = "\t")
+huri_a3 <- read.table("https://raw.githubusercontent.com/lincw/HuRI/master/HuRI_assay3_edges.txt", header = FALSE, sep = "\t")
+hi <- read.table("https://raw.githubusercontent.com/lincw/HuRI/master/HI-union.txt", header = FALSE, sep = "\t")
+```
+
+### Custom functional enrichment analysis background, from HuRI and HI-union, respectively
+To have the functional enrichment analysis, a customized background is used here.
+It's because the current interaction pairs do not cover entire human genome.
+Here downloaded the existed Generic Enrichment Map (GEM).
+To have more information about GMT, following this url: [gprofiler2](https://cran.r-project.org/web/packages/gprofiler2/vignettes/gprofiler2.html#creating-a-generic-enrichment-map-gem-file-for-enrichmentmap)
+```{r eval = FALSE, message = FALSE}
+bp_huri <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_GOBP.gmt")
+mf_huri <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_GOMF.gmt")
+cc_huri <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_GOCC.gmt")
+
+bp_huri_a1 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a1_GOBP.gmt")
+mf_huri_a1 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a1_GOMF.gmt")
+cc_huri_a1 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a1_GOCC.gmt")
+
+bp_huri_a2 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a2_GOBP.gmt")
+mf_huri_a2 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a2_GOMF.gmt")
+cc_huri_a2 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a2_GOCC.gmt")
+
+bp_huri_a3 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a3_GOBP.gmt")
+mf_huri_a3 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a3_GOMF.gmt")
+occ_huri_a3 <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_a3_GOCC.gmt")
+
+bp_hi <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_HI_GOBP.gmt")
+mf_hi <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_HI_GOMF.gmt")
+occ_hi <- upload_GMT_file(gmtfile = "https://raw.githubusercontent.com/lincw/HuRI/master/hsapien_HI_GOCC.gmt")
+```
+
+### Create network
+```{r}
+huri_graph <- graph_from_data_frame(huri, directed = FALSE)
+huri_a1_graph <- graph_from_data_frame(huri_a1, directed = FALSE)
+huri_a2_graph <- graph_from_data_frame(huri_a2, directed = FALSE)
+huri_a3_graph <- graph_from_data_frame(huri_a3, directed = FALSE)
+hi_graph <- graph_from_data_frame(hi, directed = FALSE)
+```
+
+### Visualization of interaction networks
+```{r}
+plot(huri_graph, vertex.label = NA, vertex.size = 3, main = "HuRI network")
+plot(huri_a1_graph, vertex.label = NA, vertex.size = 3, main = "HuRI assay 1 network")
+```
+
+### The largest connected component detection
+```{r}
+huri_lcc <- components(huri_graph)
+huri_a1_lcc <- components(huri_a1_graph)
+huri_a2_lcc <- components(huri_a2_graph)
+huri_a3_lcc <- components(huri_a3_graph)
+hi_lcc <- components(hi_graph)
+```
